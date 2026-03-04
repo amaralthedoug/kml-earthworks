@@ -210,7 +210,7 @@ def fig_cut_fill_bars(df: pd.DataFrame, access_id: Optional[str] = None) -> go.F
         barmode="relative",
         xaxis_title="Chainage (m)",
         yaxis_title="Height (m)  ▲ Cut  ▼ Fill",
-        height=320,
+        height=360,
         template="plotly_white",
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
     )
@@ -258,7 +258,7 @@ def fig_mass_diagram(df: pd.DataFrame, shrink_swell: float = 1.125, access_id: O
     fig.update_layout(
         xaxis_title="Chainage (m)",
         yaxis_title="Volume (m³)",
-        height=340,
+        height=360,
         template="plotly_white",
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
         hovermode="x unified",
