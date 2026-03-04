@@ -328,17 +328,14 @@ if st.session_state.results_df is not None:
     with tab_vol:
         sel_acc2 = st.selectbox("Access alignment", ["All"] + access_ids, key="vol_sel")
         acc_filter2 = None if sel_acc2 == "All" else sel_acc2
-        col_a, col_b = st.columns(2)
-        with col_a:
-            st.plotly_chart(
-                plots.fig_cut_fill_bars(df, acc_filter2),
-                use_container_width=True,
-            )
-        with col_b:
-            st.plotly_chart(
-                plots.fig_mass_diagram(df, shrink_swell, acc_filter2),
-                use_container_width=True,
-            )
+        st.plotly_chart(
+            plots.fig_cut_fill_bars(df, acc_filter2),
+            use_container_width=True,
+        )
+        st.plotly_chart(
+            plots.fig_mass_diagram(df, shrink_swell, acc_filter2),
+            use_container_width=True,
+        )
 
     with tab_3d:
         sel_acc3 = st.selectbox("Access alignment", ["All"] + access_ids, key="3d_sel")
