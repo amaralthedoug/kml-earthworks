@@ -23,7 +23,7 @@ Setup (one-time):
 """
 
 import datetime
-from typing import Optional
+from typing import Optional, Tuple
 
 
 def _get_client():
@@ -53,7 +53,7 @@ def log_lead(
     linkedin: str = "",
     files_uploaded: int = 0,
     total_length_m: float = 0.0,
-) -> tuple[bool, str]:
+) -> Tuple[bool, str]:
     """
     Append one lead row to the configured Google Sheet.
 
