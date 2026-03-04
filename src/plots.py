@@ -278,9 +278,24 @@ def fig_cross_section(df: pd.DataFrame, station_m: float, access_id: Optional[st
     if sub.empty:
         return go.Figure()
 
-    # Closest station
-    idx = (sub["station_m"] - station_m).abs().idxmin()
-    row = sub.loc[idx]
+    # Guard: columns added in grade.py may be absent in cached results
+    missing = [c for c in ("road_width_m", "cut_slope_hv", "fill_slope_hv") if c not in sub.columns]
+    if missing:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="Re-run the analysis to generate cross-sections.",
+            xref="paper", yref="paper", x=0.5, y=0.5,
+            showarrow=False, font=dict(size=14, color="#555"),
+        )
+        fig.update_layout(height=300, template="plotly_white")
+        return fig
+
+    # Closest station (idxmin returns the index label, not position)
+    closest_idx = (sub["station_m"] - station_m).abs().idxmin()
+    row = sub.loc[closest_idx]
+    # Ensure scalar (guard against duplicate index labels)
+    if not isinstance(row, pd.Series) or row.ndim != 1:
+        row = sub.loc[closest_idx].iloc[0] if hasattr(sub.loc[closest_idx], "iloc") else row
 
     h_cut   = float(row["cut_height_m"])
     h_fill  = float(row["fill_height_m"])

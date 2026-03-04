@@ -164,61 +164,6 @@ with st.sidebar:
         disabled=(not uploaded_files or not st.session_state.lead_submitted),
     )
 
-    st.divider()
-    with st.expander("📖 User Manual", expanded=False):
-        st.markdown(
-            """
-**How to use**
-
-1. **Draw** your access road as a LineString in Google Earth.
-2. **Export** → Save Place As → Format: KML.
-3. **Upload** one or more KML files above.
-4. **Set parameters** (road width, slopes, max grade).
-5. **Run Analysis** — terrain elevations are fetched automatically.
-
----
-
-**Parameters**
-
-| Parameter | Description |
-|-----------|-------------|
-| Road width | Platform width (subgrade) in metres |
-| Max slope | Maximum longitudinal grade (%) |
-| Cut side slope | Horizontal : Vertical ratio for cut slopes |
-| Fill side slope | H:V ratio for fill embankment slopes |
-| Shrink/Swell | Volume correction factor (>1 = swell) |
-| Max cut/fill height | Upper limit for cut or fill height |
-
----
-
-**Result tabs**
-
-| Tab | What you see |
-|-----|-------------|
-| Plan View | Map of all alignments |
-| Profile | Terrain vs grade line with cut/fill shading |
-| Cross Section | Engineering section at any chainage |
-| Volumes | Cut/fill bars + mass haul diagram |
-| 3D | Three-dimensional view with embankment footprint |
-| Tables | Segment summary + per-station detail |
-| Export | Download CSV |
-
----
-
-**Tech stack**
-
-`Streamlit` · `Plotly` · `pandas` · `NumPy` · `SciPy`
-Elevation data: Open-Elevation API (free, no key required).
-
----
-
-**Disclaimer**
-
-For early-stage estimation only.
-Validate against a survey DTM before using in procurement or construction.
-""",
-            unsafe_allow_html=False,
-        )
 
 # ──────────────────────────────────────────────────────────────────────────────
 # RUN PIPELINE
