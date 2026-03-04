@@ -111,18 +111,16 @@ if not st.session_state.lead_submitted:
         )
         lc1, lc2 = st.columns(2)
         lead_name    = lc1.text_input("Your name *", placeholder="Jane Engineer")
-        lead_company = lc2.text_input("Company / Project *", placeholder="Acme Mining")
+        lead_country = lc2.text_input("Country *", placeholder="Australia")
         lc3, lc4 = st.columns(2)
-        lead_country = lc3.text_input("Country *", placeholder="Australia")
-        lead_email   = lc4.text_input("Work email *", placeholder="jane@acme.com")
-        lead_linkedin = st.text_input(
+        lead_email   = lc3.text_input("Work email *", placeholder="jane@acme.com")
+        lead_linkedin = lc4.text_input(
             "LinkedIn URL (optional)", placeholder="https://linkedin.com/in/..."
         )
         if st.button("Continue to app →", type="primary"):
-            if lead_name and lead_company and lead_country and lead_email:
+            if lead_name and lead_country and lead_email:
                 leads.log_lead(
                     name=lead_name,
-                    company=lead_company,
                     country=lead_country,
                     email=lead_email,
                     linkedin=lead_linkedin,
