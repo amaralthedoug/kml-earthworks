@@ -48,7 +48,6 @@ def _get_client():
 
 def log_lead(
     name: str,
-    company: str,
     country: str,
     email: str,
     linkedin: str = "",
@@ -75,7 +74,6 @@ def log_lead(
             [
                 datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
                 name,
-                company,
                 country,
                 email,
                 linkedin,
