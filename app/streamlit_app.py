@@ -138,7 +138,7 @@ if data_source == "Upload your own KML":
     if uploaded_files:
         files_data = [{"name": f.name, "content": f.read()} for f in uploaded_files]
 else:
-    sample_choice = st.selectbox("Select a sample to analyze:", ["AC-2.kml", "AC-3.kml", "AC-4.kml"])
+    sample_choice = st.pills("Select a sample to analyze:", ["AC-2.kml", "AC-3.kml", "AC-4.kml"])
 
 # ──────────────────────────────────────────────────────────────────────────────
 # SIDEBAR — PARAMETERS
