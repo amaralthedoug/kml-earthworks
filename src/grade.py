@@ -19,40 +19,68 @@ def _apply_grade_constraints(
     max_height_m: float,
 ) -> np.ndarray:
     """
-    Build a constrained grade line.
-    1. Start from z_terrain + offset
-    2. Clip to max_height_m above/below terrain
-    3. Forward + backward passes to enforce max slope
-    4. Final clip to enforce height limit (priority)
+    Build a constrained grade line that satisfies both:
+      - max cut/fill height envelope
+      - max longitudinal slope
+
+    The method tightens feasible envelopes with forward/backward passes and
+    then projects the target grade into the feasible region.
     """
-    g = z_terrain + offset
-    g = np.clip(g, z_terrain - max_height_m, z_terrain + max_height_m)
+    target = z_terrain + offset
+    lower = z_terrain - max_height_m
+    upper = z_terrain + max_height_m
 
     max_slope = max_slope_pct / 100.0
-    dx = np.diff(x_stations)          # precomputed, avoids recomputing in loops
+    dx = np.diff(x_stations)
+    n = len(target)
 
-    # Three smoothing passes (forward + backward) to propagate slope constraint.
-    # Sequential by nature; inner numpy operations keep it fast.
-    for _ in range(3):
-        for i in range(1, len(x_stations)):
-            d = dx[i - 1]
-            lo = g[i - 1] - max_slope * d
-            hi = g[i - 1] + max_slope * d
-            if g[i] < lo:
-                g[i] = lo
-            elif g[i] > hi:
-                g[i] = hi
-        for i in range(len(x_stations) - 2, -1, -1):
-            d = dx[i]
-            lo = g[i + 1] - max_slope * d
-            hi = g[i + 1] + max_slope * d
-            if g[i] < lo:
-                g[i] = lo
-            elif g[i] > hi:
-                g[i] = hi
+    if n == 0:
+        return target
 
-    # Height limit is always priority 1
-    np.clip(g, z_terrain - max_height_m, z_terrain + max_height_m, out=g)
+    # Tighten feasible envelopes from left to right.
+    for i in range(1, n):
+        step = max_slope * dx[i - 1]
+        lower[i] = max(lower[i], lower[i - 1] - step)
+        upper[i] = min(upper[i], upper[i - 1] + step)
+        if lower[i] > upper[i]:
+            mid = (lower[i] + upper[i]) * 0.5
+            lower[i] = mid
+            upper[i] = mid
+
+    # Tighten feasible envelopes from right to left.
+    for i in range(n - 2, -1, -1):
+        step = max_slope * dx[i]
+        lower[i] = max(lower[i], lower[i + 1] - step)
+        upper[i] = min(upper[i], upper[i + 1] + step)
+        if lower[i] > upper[i]:
+            mid = (lower[i] + upper[i]) * 0.5
+            lower[i] = mid
+            upper[i] = mid
+
+    # Project target profile into the feasible region while preserving continuity.
+    g = np.empty(n, dtype=np.float64)
+    g[0] = np.clip(target[0], lower[0], upper[0])
+    for i in range(1, n):
+        step = max_slope * dx[i - 1]
+        lo = max(lower[i], g[i - 1] - step)
+        hi = min(upper[i], g[i - 1] + step)
+        if lo > hi:
+            mid = (lo + hi) * 0.5
+            lo = mid
+            hi = mid
+        g[i] = np.clip(target[i], lo, hi)
+
+    # Backward polish to reduce residual drift and keep feasibility.
+    for i in range(n - 2, -1, -1):
+        step = max_slope * dx[i]
+        lo = max(lower[i], g[i + 1] - step)
+        hi = min(upper[i], g[i + 1] + step)
+        if lo > hi:
+            mid = (lo + hi) * 0.5
+            lo = mid
+            hi = mid
+        g[i] = np.clip(g[i], lo, hi)
+
     return g
 
 
@@ -139,11 +167,21 @@ def compute_grade(
 
     objective_fn = total_vol if objective_mode == "min_volume" else balance_obj
 
-    result = minimize_scalar(
-        objective_fn, bounds=(-max_height_m, max_height_m), method="bounded"
-    )
+    # Global 1D search first (objective is not guaranteed unimodal), then local refine.
+    grid = np.linspace(-max_height_m, max_height_m, 321)
+    obj_vals = np.fromiter((objective_fn(off) for off in grid), dtype=np.float64)
+    best_idx = int(np.argmin(obj_vals))
+    best_off = float(grid[best_idx])
+    best_obj = float(obj_vals[best_idx])
 
-    g_final = _apply_grade_constraints(z, x, result.x, max_slope_pct, max_height_m)
+    lo = float(grid[max(best_idx - 1, 0)])
+    hi = float(grid[min(best_idx + 1, len(grid) - 1)])
+    if hi > lo:
+        local = minimize_scalar(objective_fn, bounds=(lo, hi), method="bounded")
+        if local.success and float(local.fun) <= best_obj:
+            best_off = float(local.x)
+
+    g_final = _apply_grade_constraints(z, x, best_off, max_slope_pct, max_height_m)
     v_cut_inc, v_fill_inc, h_cut, h_fill = _compute_volumes(
         g_final, z, x, road_width_m, cut_slope_hv, fill_slope_hv
     )

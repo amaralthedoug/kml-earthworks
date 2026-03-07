@@ -382,7 +382,7 @@ def fig_cross_section(df: pd.DataFrame, station_m: float, access_id: Optional[st
         # Natural ground (y = 0 reference)
         fig.add_trace(go.Scatter(
             x=[-x_max, x_max], y=[0, 0],
-            mode="lines", name="Natural ground",
+            mode="lines", name="Ground",
             line=dict(color=_TERRAIN_COLOR, width=2.5, dash="dot"),
         ))
 
@@ -394,13 +394,13 @@ def fig_cross_section(df: pd.DataFrame, station_m: float, access_id: Optional[st
             fill="toself",
             fillcolor="rgba(224,82,82,0.20)",
             line=dict(color=_CUT_COLOR, width=1.5),
-            name=f"Cut zone  Hc = {h_cut:.2f} m",
+            name="Cut zone",
         ))
 
         # Road platform (subgrade)
         fig.add_trace(go.Scatter(
             x=[-road_w / 2, road_w / 2], y=[-h_cut, -h_cut],
-            mode="lines", name=f"Subgrade  W = {road_w:.1f} m",
+            mode="lines", name="Subgrade",
             line=dict(color=_GRADE_COLOR, width=4),
         ))
 
@@ -427,7 +427,7 @@ def fig_cross_section(df: pd.DataFrame, station_m: float, access_id: Optional[st
         # Natural ground
         fig.add_trace(go.Scatter(
             x=[-x_max, x_max], y=[0, 0],
-            mode="lines", name="Natural ground",
+            mode="lines", name="Ground",
             line=dict(color=_TERRAIN_COLOR, width=2.5, dash="dot"),
         ))
 
@@ -439,13 +439,13 @@ def fig_cross_section(df: pd.DataFrame, station_m: float, access_id: Optional[st
             fill="toself",
             fillcolor="rgba(74,144,217,0.20)",
             line=dict(color=_FILL_COLOR, width=1.5),
-            name=f"Fill zone  Hf = {h_fill:.2f} m",
+            name="Fill zone",
         ))
 
         # Road platform
         fig.add_trace(go.Scatter(
             x=[-road_w / 2, road_w / 2], y=[h_fill, h_fill],
-            mode="lines", name=f"Subgrade  W = {road_w:.1f} m",
+            mode="lines", name="Subgrade",
             line=dict(color=_GRADE_COLOR, width=4),
         ))
 
@@ -468,12 +468,12 @@ def fig_cross_section(df: pd.DataFrame, station_m: float, access_id: Optional[st
         x_max = road_w / 2 + 3.0
         fig.add_trace(go.Scatter(
             x=[-x_max, x_max], y=[0, 0],
-            mode="lines", name="Natural ground / Subgrade",
+            mode="lines", name="Ground / Subgrade",
             line=dict(color=_TERRAIN_COLOR, width=2.5),
         ))
         fig.add_trace(go.Scatter(
             x=[-road_w / 2, road_w / 2], y=[0, 0],
-            mode="lines", name=f"Road platform  W = {road_w:.1f} m",
+            mode="lines", name="Road platform",
             line=dict(color=_GRADE_COLOR, width=5),
         ))
         y_range = [-2, 2]
@@ -483,14 +483,27 @@ def fig_cross_section(df: pd.DataFrame, station_m: float, access_id: Optional[st
                   annotation_text="CL", annotation_position="top")
 
     fig.update_layout(
-        title=dict(text=f"Cross-section  —  Station {sta:.0f} m", font=dict(size=14)),
+        title=dict(
+            text=f"Cross-section — Station {sta:.0f} m",
+            font=dict(size=14),
+            x=0.01,
+            xanchor="left",
+            y=0.98,
+        ),
         xaxis_title="Offset from centreline (m)",
         yaxis_title="Elevation relative to natural ground (m)",
         yaxis=dict(range=y_range, scaleanchor="x", scaleratio=1),
         height=380,
         template="plotly_white",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
-        margin=dict(l=60, r=20, t=60, b=50),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.10,
+            xanchor="left",
+            x=0.0,
+            bgcolor="rgba(255,255,255,0.8)",
+        ),
+        margin=dict(l=60, r=20, t=88, b=50),
     )
     return fig
 
