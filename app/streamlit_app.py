@@ -118,14 +118,24 @@ st.markdown(
 # SIDEBAR — UPLOAD + PARAMETERS
 # ──────────────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### Upload")
-    uploaded_files = st.file_uploader(
-        "KML files",
-        type=["kml"],
-        accept_multiple_files=True,
-        help="Draw LineStrings in Google Earth, export as KML, upload here.",
-        disabled=not st.session_state.lead_submitted,
-    )
+    st.markdown("### Input Data")
+    data_source = st.radio("Choose input method:", ["Upload your own KML", "Use a sample KML"])
+    
+    files_data = []
+    sample_choice = None
+    
+    if data_source == "Upload your own KML":
+        uploaded_files = st.file_uploader(
+            "KML files",
+            type=["kml"],
+            accept_multiple_files=True,
+            help="Draw LineStrings in Google Earth, export as KML, upload here.",
+            disabled=not st.session_state.lead_submitted,
+        )
+        if uploaded_files:
+            files_data = [{"name": f.name, "content": f.read()} for f in uploaded_files]
+    else:
+        sample_choice = st.selectbox("Select a sample to analyze:", ["AC-2.kml", "AC-3.kml", "AC-4.kml"])
 
     st.markdown('<p class="sidebar-title">Road Parameters</p>', unsafe_allow_html=True)
     road_width   = st.slider("Road width (m)",        3.0, 12.0, 6.0, 0.5)
@@ -135,105 +145,115 @@ with st.sidebar:
     shrink_swell = st.slider("Shrink/Swell factor",  0.90, 1.30, 1.125, 0.005, format="%.3f")
     max_height   = st.slider("Max cut/fill height (m)", 2.0, 20.0, 10.0, 0.5)
 
+    run_disabled = False
+    if data_source == "Upload your own KML" and not files_data:
+        run_disabled = True
+
     run = st.button(
         "⚡ Run Analysis",
         type="primary",
         use_container_width=True,
-        disabled=(not uploaded_files or not st.session_state.lead_submitted),
+        disabled=run_disabled or not st.session_state.lead_submitted,
     )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # RUN PIPELINE
 # ──────────────────────────────────────────────────────────────────────────────
-if run and uploaded_files:
-    files_data = [
-        {"name": f.name, "content": f.read()} for f in uploaded_files
-    ]
+if run and not run_disabled:
+    if data_source == "Use a sample KML" and sample_choice:
+        try:
+            with open(os.path.join(os.path.dirname(__file__), "..", "sample", sample_choice), "r") as f:
+                files_data = [{"name": sample_choice, "content": f.read()}]
+        except Exception as e:
+            st.error(f"Error loading sample: {e}")
+            files_data = []
 
-    with st.status("Processing alignments…", expanded=True) as status:
-        # 1. Parse KML
-        st.write("📂 Parsing KML files…")
-        alignments = parse_multiple_kml(files_data)
-        if not alignments:
-            st.error("No LineString alignments found in the uploaded files.")
-            st.stop()
-        st.write(f"   → {len(alignments)} alignment(s) detected")
+    if files_data:
+        with st.status("Processing alignments…", expanded=True) as status:
+            # 1. Parse KML
+            st.write("📂 Parsing KML files…")
+            alignments = parse_multiple_kml(files_data)
+            if not alignments:
+                st.error("No LineString alignments found in the uploaded files.")
+                st.stop()
+            st.write(f"   → {len(alignments)} alignment(s) detected")
 
-        # 2. Elevation
-        st.write("🌍 Fetching terrain elevations (Open-Meteo)…")
-        progress_bar = st.progress(0)
+            # 2. Elevation
+            st.write("🌍 Fetching terrain elevations (Open-Meteo)…")
+            progress_bar = st.progress(0)
 
-        def update_progress(done, total):
-            progress_bar.progress(done / total)
+            def update_progress(done, total):
+                progress_bar.progress(done / total)
 
-        all_points_flat = [p for a in alignments for p in a["points"]]
-        enrich_elevation(all_points_flat, progress_callback=update_progress)
+            all_points_flat = [p for a in alignments for p in a["points"]]
+            enrich_elevation(all_points_flat, progress_callback=update_progress)
 
-        # Re-distribute enriched points back to alignments
-        idx = 0
-        for a in alignments:
-            n = len(a["points"])
-            a["points"] = all_points_flat[idx : idx + n]
-            idx += n
-        progress_bar.empty()
-        st.write(f"   → {len(all_points_flat):,} points enriched")
+            # Re-distribute enriched points back to alignments
+            idx = 0
+            for a in alignments:
+                n = len(a["points"])
+                a["points"] = all_points_flat[idx : idx + n]
+                idx += n
+            progress_bar.empty()
+            st.write(f"   → {len(all_points_flat):,} points enriched")
 
-        # 3. Stationing + grade per alignment
-        st.write("📐 Computing grade lines and volumes…")
-        alignments_data = []
-        for a in alignments:
-            stations = build_stationing(a["points"])
-            stations = compute_grade(
-                stations,
-                road_width_m=road_width,
-                max_slope_pct=max_slope,
-                max_height_m=max_height,
-                cut_slope_hv=cut_slope,
-                fill_slope_hv=fill_slope,
-                shrink_swell=shrink_swell,
-            )
-            alignments_data.append(
-                {
-                    "file_name": a["file_name"],
-                    "access_id": a["access_id"],
-                    "stations": stations,
-                }
-            )
+            # 3. Stationing + grade per alignment
+            st.write("📐 Computing grade lines and volumes…")
+            alignments_data = []
+            for a in alignments:
+                stations = build_stationing(a["points"])
+                stations = compute_grade(
+                    stations,
+                    road_width_m=road_width,
+                    max_slope_pct=max_slope,
+                    max_height_m=max_height,
+                    cut_slope_hv=cut_slope,
+                    fill_slope_hv=fill_slope,
+                    shrink_swell=shrink_swell,
+                )
+                alignments_data.append(
+                    {
+                        "file_name": a["file_name"],
+                        "access_id": a["access_id"],
+                        "stations": stations,
+                    }
+                )
 
-        # 4. Aggregate
-        results_df = build_dataframe(alignments_data, shrink_swell=shrink_swell)
-        summary_df = build_segment_summary(results_df, shrink_swell=shrink_swell)
-        kpis = overall_kpis(summary_df)
+            # 4. Aggregate
+            results_df = build_dataframe(alignments_data, shrink_swell=shrink_swell)
+            summary_df = build_segment_summary(results_df, shrink_swell=shrink_swell)
+            kpis = overall_kpis(summary_df)
 
-        # 5. Build all figures
-        st.write("📊 Building charts…")
-        figs = {
-            "Plan View": plots.fig_plan_view(results_df),
-            "Profile": plots.fig_profile(results_df),
-            "Cut / Fill Heights": plots.fig_cut_fill_bars(results_df),
-            "Mass Diagram": plots.fig_mass_diagram(results_df, shrink_swell),
-            "3D View": plots.fig_3d(results_df),
-        }
+            # 5. Build all figures
+            st.write("📊 Building charts…")
+            figs = {
+                "Plan View": plots.fig_plan_view(results_df),
+                "Profile": plots.fig_profile(results_df),
+                "Cut / Fill Heights": plots.fig_cut_fill_bars(results_df),
+                "Mass Diagram": plots.fig_mass_diagram(results_df, shrink_swell),
+                "3D View": plots.fig_3d(results_df),
+            }
 
-        params_used = {
-            "Road width": f"{road_width} m",
-            "Max slope": f"{max_slope} %",
-            "Cut side slope": f"{cut_slope} H:V",
-            "Fill side slope": f"{fill_slope} H:V",
-            "Shrink/Swell factor": f"{shrink_swell:.3f}",
-            "Max cut/fill height": f"{max_height} m",
-            "Stake interval": "20 m",
-            "Elevation source": "Open-Meteo (free, ~30 m resolution)",
-        }
+            params_used = {
+                "Input Method": f"Sample: {sample_choice}" if data_source == "Use a sample KML" else "Custom Upload",
+                "Road width": f"{road_width} m",
+                "Max slope": f"{max_slope} %",
+                "Cut side slope": f"{cut_slope} H:V",
+                "Fill side slope": f"{fill_slope} H:V",
+                "Shrink/Swell factor": f"{shrink_swell:.3f}",
+                "Max cut/fill height": f"{max_height} m",
+                "Stake interval": "20 m",
+                "Elevation source": "Open-Meteo (free, ~30 m resolution)",
+            }
 
-        st.session_state.results_df  = results_df
-        st.session_state.summary_df  = summary_df
-        st.session_state.kpis        = kpis
-        st.session_state.figures     = figs
-        st.session_state.params_used = params_used
+            st.session_state.results_df  = results_df
+            st.session_state.summary_df  = summary_df
+            st.session_state.kpis        = kpis
+            st.session_state.figures     = figs
+            st.session_state.params_used = params_used
 
-        status.update(label="✅ Analysis complete!", state="complete")
+            status.update(label="✅ Analysis complete!", state="complete")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # RESULTS
@@ -449,30 +469,10 @@ if st.session_state.results_df is not None:
 # ──────────────────────────────────────────────────────────────────────────────
 elif st.session_state.lead_submitted:
     st.info(
-        "👈 **Upload one or more KML files** in the sidebar, "
+        "👈 **Upload a KML file or choose a sample** in the sidebar, "
         "adjust parameters, then click **Run Analysis**.",
         icon="📂",
     )
-    
-    # ── KML Samples ──
-    st.markdown("#### Exemplos de KML")
-    st.caption("Faça o download dos arquivos abaixo na pasta de exemplos e envie pelo menu lateral para testar a ferramenta.")
-    sample_col1, sample_col2, sample_col3 = st.columns(3)
-    
-    try:
-        with open(os.path.join(os.path.dirname(__file__), "..", "sample", "AC-2.kml"), "r") as f:
-            ac2_data = f.read()
-            sample_col1.download_button("⬇ Baixar AC-2.kml", data=ac2_data, file_name="AC-2.kml", use_container_width=True)
-            
-        with open(os.path.join(os.path.dirname(__file__), "..", "sample", "AC-3.kml"), "r") as f:
-            ac3_data = f.read()
-            sample_col2.download_button("⬇ Baixar AC-3.kml", data=ac3_data, file_name="AC-3.kml", use_container_width=True)
-            
-        with open(os.path.join(os.path.dirname(__file__), "..", "sample", "AC-4.kml"), "r") as f:
-            ac4_data = f.read()
-            sample_col3.download_button("⬇ Baixar AC-4.kml", data=ac4_data, file_name="AC-4.kml", use_container_width=True)
-    except Exception as e:
-        st.warning(f"Exemplos não encontrados: {e}")
 
     with st.expander("How it works"):
         st.markdown(
