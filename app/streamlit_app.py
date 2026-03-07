@@ -303,8 +303,7 @@ with st.sidebar:
     )
     st.markdown("---")
     st.markdown("### Feedback")
-    st.caption("Tell me what you liked and what can be improved.")
-    st.markdown("Contact: **caiozanetti@gmail.com**")
+    st.markdown("**caiozanetti@gmail.com**")
 
 design_params = {
     "road_width_m": road_width,
