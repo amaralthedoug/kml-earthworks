@@ -12,6 +12,10 @@ SUPABASE_KEY = (
     or os.environ.get("SUPABASE_ANON_KEY")
     or os.environ.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY")
 )
+SUPABASE_LOG_TABLE = (
+    os.environ.get("SUPABASE_LOG_TABLE")
+    or "log_user"
+)
 
 def init_supabase() -> Client | None:
     """Initialize and return the Supabase client if credentials are provided."""
@@ -43,7 +47,7 @@ def log_access(session_id: str) -> str | None:
     ip_address = get_public_ip()
     
     try:
-        resp = supabase.table("access_logs").insert({
+        resp = supabase.table(SUPABASE_LOG_TABLE).insert({
             "session_id": session_id,
             "ip_address": ip_address
         }).execute()
@@ -52,7 +56,7 @@ def log_access(session_id: str) -> str | None:
         if rows:
             return rows[0].get("id")
     except Exception as e:
-        print(f"Error logging access to Supabase: {e}")
+        print(f"Error logging access to Supabase table '{SUPABASE_LOG_TABLE}': {e}")
     return None
 
 def update_access_exit_time(row_id: str):
@@ -63,11 +67,11 @@ def update_access_exit_time(row_id: str):
     try:
         from datetime import datetime
         now_iso = datetime.utcnow().isoformat()
-        supabase.table('access_logs').update({
+        supabase.table(SUPABASE_LOG_TABLE).update({
             "exit_time": now_iso
         }).eq("id", row_id).execute()
     except Exception as e:
-        print(f"Error updating access exit time in Supabase: {e}")
+        print(f"Error updating access exit time in Supabase table '{SUPABASE_LOG_TABLE}': {e}")
 
 def log_feedback(nome: str, email: str, feedback: str) -> bool:
     """Saves user feedback to the feedbacks table."""
