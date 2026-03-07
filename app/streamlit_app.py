@@ -411,6 +411,31 @@ if st.session_state.results_df is not None:
     with tab_vol:
         sel_acc2 = st.selectbox("Access alignment", ["All"] + access_ids, key="vol_sel")
         acc_filter2 = None if sel_acc2 == "All" else sel_acc2
+        sub_vol = df[df["access_id"] == acc_filter2].copy() if acc_filter2 else df.copy()
+        if acc_filter2 is None and sub_vol["access_id"].nunique() > 1:
+            agg = (
+                sub_vol.groupby("station_m", as_index=False)[["cut_vol_m3", "fill_vol_m3"]]
+                .sum()
+                .sort_values("station_m")
+            )
+            cut_end = float(agg["cut_vol_m3"].cumsum().iloc[-1]) if not agg.empty else 0.0
+            fill_end = float(agg["fill_vol_m3"].cumsum().iloc[-1]) if not agg.empty else 0.0
+        else:
+            sub_vol = sub_vol.sort_values("station_m")
+            cut_end = float(sub_vol["cut_vol_cum_m3"].iloc[-1]) if not sub_vol.empty else 0.0
+            fill_end = float(sub_vol["fill_vol_cum_m3"].iloc[-1]) if not sub_vol.empty else 0.0
+
+        cut_equiv = cut_end * shrink_swell
+        net_bal = cut_equiv - fill_end
+        st.caption(
+            f"Mass balance formula: (Cut in-situ × {shrink_swell:.3f}) - Fill = {net_bal:,.0f} m³."
+        )
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Cut in-situ", f"{cut_end:,.0f} m³")
+        m2.metric("Cut equivalent", f"{cut_equiv:,.0f} m³")
+        m3.metric("Fill", f"{fill_end:,.0f} m³")
+        m4.metric("Mass balance", f"{net_bal:,.0f} m³")
+
         st.markdown("#### Cut / Fill Heights")
         st.plotly_chart(
             plots.fig_cut_fill_bars(df, acc_filter2),
