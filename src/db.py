@@ -38,6 +38,12 @@ SUPABASE_KEY = _get_config(
 )
 SUPABASE_LOG_TABLE = _get_config("SUPABASE_LOG_TABLE") or "log_user"
 
+# Project defaults (publishable key) used as fallback in Cloud deployments.
+if not SUPABASE_URL:
+    SUPABASE_URL = "https://xvnloxyipwkvvamumtbc.supabase.co"
+if not SUPABASE_KEY:
+    SUPABASE_KEY = "sb_publishable_BTUDHYKslYQk10rCKoiduQ_gWipZz_u"
+
 def init_supabase() -> Client | None:
     """Initialize and return the Supabase client if credentials are provided."""
     if create_client and SUPABASE_URL and SUPABASE_KEY:
