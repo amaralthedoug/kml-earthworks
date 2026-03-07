@@ -301,7 +301,6 @@ with st.sidebar:
         use_container_width=True,
         disabled=st.session_state.base_alignments is None,
     )
-    st.markdown("---")
     st.markdown("### Feedback")
     st.markdown("**caiozanetti@gmail.com**")
 
