@@ -86,70 +86,63 @@ def fig_plan_view(df: pd.DataFrame) -> go.Figure:
 
 def fig_profile(df: pd.DataFrame, access_id: Optional[str] = None) -> go.Figure:
     """Terrain vs grade line profile with cut/fill shading."""
-    sub = df[df["access_id"] == access_id] if access_id else df
+    sub = df[df["access_id"] == access_id].copy() if access_id else df.copy()
+    sub = sub.sort_values("station_m")
 
-    x = sub["station_m"].to_numpy()
-    terrain = sub["z_terrain_m"].to_numpy()
-    grade = sub["z_grade_m"].to_numpy()
-    fill_mask = grade > terrain
-    cut_mask = terrain > grade
-
-    fill_bottom = np.where(fill_mask, terrain, np.nan)
-    fill_top = np.where(fill_mask, grade, np.nan)
-    cut_bottom = np.where(cut_mask, grade, np.nan)
-    cut_top = np.where(cut_mask, terrain, np.nan)
+    x = sub["station_m"].to_numpy(dtype=float)
+    terrain = sub["z_terrain_m"].to_numpy(dtype=float)
+    grade = sub["z_grade_m"].to_numpy(dtype=float)
+    fill_mask = sub["fill_height_m"].to_numpy(dtype=float) > 0.01
+    cut_mask = sub["cut_height_m"].to_numpy(dtype=float) > 0.01
 
     fig = go.Figure()
 
-    # Shading: fill area (grade > terrain), shown only where mask is true
-    fig.add_trace(
-        go.Scatter(
-            x=x,
-            y=fill_bottom,
-            line=dict(width=0),
-            showlegend=False,
-            hoverinfo="skip",
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=x,
-            y=fill_top,
-            fill="tonexty",
-            fillcolor="rgba(74,144,217,0.25)",
-            line=dict(width=0),
-            name="Fill zone",
-            hoverinfo="skip",
-        )
-    )
+    def _true_segments(mask_arr: np.ndarray):
+        idx = np.where(mask_arr)[0]
+        if len(idx) == 0:
+            return []
+        starts = [idx[0]]
+        ends = []
+        for i in range(1, len(idx)):
+            if idx[i] != idx[i - 1] + 1:
+                ends.append(idx[i - 1])
+                starts.append(idx[i])
+        ends.append(idx[-1])
+        return list(zip(starts, ends))
 
-    # Shading: cut area (terrain > grade), shown only where mask is true
-    fig.add_trace(
-        go.Scatter(
-            x=x,
-            y=cut_bottom,
-            line=dict(width=0),
-            showlegend=False,
-            hoverinfo="skip",
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=x,
-            y=cut_top,
-            fill="tonexty",
-            fillcolor="rgba(224,82,82,0.25)",
-            line=dict(width=0),
-            name="Cut zone",
-            hoverinfo="skip",
-        )
-    )
+    def _add_zone_polygons(mask_arr: np.ndarray, color_rgba: str, name: str, top: np.ndarray, bottom: np.ndarray):
+        show_legend = True
+        for start, end in _true_segments(mask_arr):
+            if end - start < 1:
+                continue
+            xs = x[start : end + 1]
+            yt = top[start : end + 1]
+            yb = bottom[start : end + 1]
+            poly_x = np.concatenate([xs, xs[::-1]])
+            poly_y = np.concatenate([yt, yb[::-1]])
+            fig.add_trace(
+                go.Scatter(
+                    x=poly_x,
+                    y=poly_y,
+                    fill="toself",
+                    fillcolor=color_rgba,
+                    line=dict(width=0),
+                    name=name if show_legend else None,
+                    showlegend=show_legend,
+                    hoverinfo="skip",
+                )
+            )
+            show_legend = False
+
+    # Explicit polygons avoid ambiguous shading when terrain and grade are close.
+    _add_zone_polygons(fill_mask, "rgba(74,144,217,0.40)", "Fill zone", grade, terrain)
+    _add_zone_polygons(cut_mask, "rgba(224,82,82,0.40)", "Cut zone", terrain, grade)
 
     # Terrain line
     fig.add_trace(
         go.Scatter(
-            x=sub["station_m"],
-            y=sub["z_terrain_m"],
+            x=x,
+            y=terrain,
             name="Terrain",
             line=dict(color=_TERRAIN_COLOR, width=2, dash="dot"),
             hovertemplate="Station %{x:.0f} m<br>Terrain: %{y:.2f} m<extra></extra>",
@@ -159,8 +152,8 @@ def fig_profile(df: pd.DataFrame, access_id: Optional[str] = None) -> go.Figure:
     # Grade line
     fig.add_trace(
         go.Scatter(
-            x=sub["station_m"],
-            y=sub["z_grade_m"],
+            x=x,
+            y=grade,
             name="Grade line",
             line=dict(color=_GRADE_COLOR, width=3),
             hovertemplate="Station %{x:.0f} m<br>Grade: %{y:.2f} m<br>Slope: %{customdata:.1f}%<extra></extra>",

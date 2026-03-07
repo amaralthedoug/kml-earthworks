@@ -327,6 +327,13 @@ if st.session_state.results_df is not None:
     with tab_profile:
         sel_acc = st.selectbox("Access alignment", ["All"] + access_ids, key="prof_sel")
         acc_filter = None if sel_acc == "All" else sel_acc
+        sub_prof = df[df["access_id"] == acc_filter] if acc_filter else df
+        cut_count = int((sub_prof["cut_height_m"] > 0.01).sum())
+        fill_count = int((sub_prof["fill_height_m"] > 0.01).sum())
+        if cut_count == 0 and fill_count == 0:
+            st.info("No cut/fill zones detected for this selection.")
+        else:
+            st.caption(f"Detected zones: {cut_count} cut stations, {fill_count} fill stations.")
         st.plotly_chart(
             plots.fig_profile(df, acc_filter),
             use_container_width=True,
