@@ -3,8 +3,15 @@ import requests
 from supabase import create_client, Client
 
 # Use environment variables if available (e.g. from .env or Streamlit Cloud Secrets)
-SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY")
+SUPABASE_URL = (
+    os.environ.get("SUPABASE_URL")
+    or os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
+)
+SUPABASE_KEY = (
+    os.environ.get("SUPABASE_KEY")
+    or os.environ.get("SUPABASE_ANON_KEY")
+    or os.environ.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY")
+)
 
 def init_supabase() -> Client | None:
     """Initialize and return the Supabase client if credentials are provided."""
@@ -36,13 +43,14 @@ def log_access(session_id: str) -> str | None:
     ip_address = get_public_ip()
     
     try:
-        data, count = supabase.table('access_logs').insert({
+        resp = supabase.table("access_logs").insert({
             "session_id": session_id,
             "ip_address": ip_address
         }).execute()
-        
-        if data and len(data[1]) > 0:
-            return data[1][0].get('id')
+
+        rows = getattr(resp, "data", None) or []
+        if rows:
+            return rows[0].get("id")
     except Exception as e:
         print(f"Error logging access to Supabase: {e}")
     return None
