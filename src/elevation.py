@@ -10,6 +10,7 @@ import requests
 from typing import Dict, List, Optional, Tuple
 
 from src.logger import get_logger
+from src.types import PointList, ValidationReport
 
 logger = get_logger(__name__)
 
@@ -120,7 +121,8 @@ def _fetch_batch(
             resp = http.post(url_topo, data=topo_data, timeout=_TOPO_TIMEOUT)
             if resp.status_code == 200:
                 results = resp.json().get("results", [])
-                elevations = [r.get("elevation") or 0.0 for r in results]
+                # Use None for missing elevation data (not 0.0, which is valid sea level)
+                elevations = [r.get("elevation") for r in results]
                 if len(elevations) == len(lats):
                     time.sleep(_TOPO_RATE_LIMIT_DELAY_S)
                     return elevations
@@ -142,10 +144,10 @@ def _fetch_batch(
 
 
 def enrich_elevation(
-    points: List[Dict],
+    points: PointList,
     progress_callback=None,
     cooldown_state: Optional[Dict] = None
-) -> Tuple[List[Dict], Dict]:
+) -> Tuple[PointList, ValidationReport]:
     """
     Add 'z_terrain_m' to each point dict.
 
@@ -177,19 +179,21 @@ def enrich_elevation(
                 all_elevations.extend(elevations)
             except RuntimeError as e:
                 logger.error(f"Failed to fetch elevation for batch at index {i}: {e}")
-                # Use 0.0 as fallback for failed batch
-                all_elevations.extend([0.0] * len(batch))
+                # Use None as marker for failed batch (0.0 is valid sea level)
+                all_elevations.extend([None] * len(batch))
                 failed_batches.append((i, len(batch)))
 
             if progress_callback:
                 progress_callback(min(i + _BATCH_SIZE, total), total)
 
-    # Count missing/zero elevations
+    # Count only truly missing elevations (None), not sea level (0.0)
     missing_count = 0
     for point, z in zip(points, all_elevations):
-        if z is None or (isinstance(z, float) and z == 0.0):
+        if z is None:
             missing_count += 1
-        point["z_terrain_m"] = float(z) if z is not None else 0.0
+            point["z_terrain_m"] = 0.0  # Fallback to 0.0 for backward compatibility
+        else:
+            point["z_terrain_m"] = float(z)
 
     # Build validation report
     validation = {
@@ -200,9 +204,19 @@ def enrich_elevation(
     }
 
     if missing_count > 0:
+        failure_rate = 100 - validation['success_rate']
         logger.warning(
             f"Elevation data missing for {missing_count}/{total} points "
-            f"({100 - validation['success_rate']:.1f}% failure rate)"
+            f"({failure_rate:.1f}% failure rate)"
         )
+
+        # CRITICAL: Stop execution if too many points failed
+        # Using fallback 0.0 elevation produces incorrect earthworks calculations
+        if failure_rate > 10.0:
+            raise RuntimeError(
+                f"Elevation data failed for {failure_rate:.1f}% of points "
+                f"({missing_count}/{total}). Cannot proceed with unreliable data. "
+                f"Check API rate limits and connectivity."
+            )
 
     return points, validation

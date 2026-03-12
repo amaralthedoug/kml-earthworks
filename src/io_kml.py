@@ -7,6 +7,8 @@ Each LineString becomes one Access alignment.
 import xml.etree.ElementTree as ET
 from typing import List, Dict
 
+from src.types import Point, PointList, Alignment, AlignmentList
+
 
 # KML namespace variants
 _NS = [
@@ -35,7 +37,7 @@ def _findall(element, tag):
     return []
 
 
-def _parse_coordinates(coord_text: str) -> List[Dict]:
+def _parse_coordinates(coord_text: str) -> PointList:
     """Parse a <coordinates> text block into list of {lon, lat} dicts."""
     points = []
     for token in coord_text.strip().split():
@@ -59,7 +61,7 @@ def _get_placemark_name(placemark, index: int) -> str:
     return f"access_{index + 1:02d}"
 
 
-def parse_kml_file(file_content: bytes, file_name: str) -> List[Dict]:
+def parse_kml_file(file_content: bytes, file_name: str) -> AlignmentList:
     """
     Parse a KML file content and return a list of alignments.
 
@@ -102,7 +104,7 @@ def parse_kml_file(file_content: bytes, file_name: str) -> List[Dict]:
     return alignments
 
 
-def parse_multiple_kml(files: List[Dict]) -> List[Dict]:
+def parse_multiple_kml(files: List[Dict]) -> AlignmentList:
     """
     Parse multiple KML files.
 

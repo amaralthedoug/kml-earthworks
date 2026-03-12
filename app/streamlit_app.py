@@ -22,6 +22,9 @@ from src.stationing import build_stationing
 from src.grade import compute_grade
 from src.earthworks import build_dataframe, build_segment_summary, overall_kpis
 from src import plots, exports, db
+from src.logger import get_logger
+
+logger = get_logger(__name__)
 
 _COMPUTE_GRADE_SUPPORTS_OBJECTIVE = "objective_mode" in inspect.signature(compute_grade).parameters
 
@@ -122,9 +125,9 @@ if "session_id" not in st.session_state:
         st.session_state.access_log_id = row_id
         st.session_state.last_exit_ping_ts = time.time()
     else:
-        print(
-            "Access log insert failed for session "
-            f"{st.session_state.session_id}. Check Supabase secrets and RLS policies."
+        logger.warning(
+            f"Access log insert failed for session {st.session_state.session_id}. "
+            "Check Supabase secrets and RLS policies."
         )
 
 # Best-effort "last seen": updates exit_time periodically during active reruns.

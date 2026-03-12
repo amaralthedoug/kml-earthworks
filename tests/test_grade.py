@@ -232,3 +232,54 @@ class TestGradeOutput:
             assert "lat" in station
             assert "lon" in station
             assert "custom_field" in station
+
+    def test_prismatoid_formula_validation(self):
+        """Validate prismatoid formula produces more accurate volumes than average-end-area"""
+        # Create simple test case: two stations with known geometry
+        # Station 0: h_cut = 2.0m, Station 1: h_cut = 4.0m
+        # Midpoint: h_cut_mid = 3.0m
+        # Road width = 6.0m, Cut slope = 1.0 (1H:1V)
+        # Distance = 20m
+        #
+        # Areas:
+        #   A1 = 6.0 * 2.0 + 1.0 * 2.0² = 12 + 4 = 16 m²
+        #   A2 = 6.0 * 4.0 + 1.0 * 4.0² = 24 + 16 = 40 m²
+        #   Am = 6.0 * 3.0 + 1.0 * 3.0² = 18 + 9 = 27 m²
+        #
+        # Prismatoid: V = (16 + 40 + 4*27) * 20 / 6 = (16 + 40 + 108) * 20 / 6
+        #                = 164 * 20 / 6 = 546.67 m³
+        #
+        # Average-end-area: V = (16 + 40) / 2 * 20 = 28 * 20 = 560 m³
+        #
+        # Prismatoid is ~2.4% lower (more accurate for this geometry)
+
+        stations = [
+            {"station_m": 0.0, "z_terrain_m": 100.0},
+            {"station_m": 20.0, "z_terrain_m": 100.0},
+        ]
+
+        # Force specific grade line to create known cut heights
+        from src.grade import _compute_volumes
+        import numpy as np
+
+        z_terrain = np.array([100.0, 100.0])
+        z_grade = np.array([98.0, 96.0])  # 2m and 4m below terrain (cut)
+        x_stations = np.array([0.0, 20.0])
+
+        v_cut, v_fill, h_cut, h_fill = _compute_volumes(
+            z_grade, z_terrain, x_stations,
+            road_width_m=6.0,
+            cut_slope_hv=1.0,
+            fill_slope_hv=1.5,
+        )
+
+        # Expected: ~546.67 m³ (prismatoid)
+        # NOT 560 m³ (average-end-area)
+        expected_prismatoid = 546.67
+        tolerance = 1.0  # Allow 1 m³ tolerance for floating point
+
+        assert len(v_cut) == 1
+        assert abs(v_cut[0] - expected_prismatoid) < tolerance, (
+            f"Prismatoid formula not applied correctly. "
+            f"Expected ~{expected_prismatoid:.2f} m³, got {v_cut[0]:.2f} m³"
+        )

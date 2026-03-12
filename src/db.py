@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Dict
 
 import requests
 
@@ -56,7 +56,7 @@ def init_supabase() -> Client | None:
 supabase = init_supabase()
 
 
-def _rest_insert_log(payload: dict) -> str | None:
+def _rest_insert_log(payload: Dict[str, Any]) -> str | None:
     if not SUPABASE_URL or not SUPABASE_KEY:
         return None
 
@@ -116,8 +116,8 @@ def get_public_ip() -> str:
             if forwarded_for:
                 # X-Forwarded-For can contain multiple IPs, take the first (client)
                 return forwarded_for.split(',')[0].strip()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Could not retrieve public IP from headers: {e}", exc_info=True)
     return "unknown"
 
 def log_access(session_id: str) -> str | None:
@@ -136,7 +136,7 @@ def log_access(session_id: str) -> str | None:
 
     return _rest_insert_log(payload)
 
-def update_access_exit_time(row_id: str):
+def update_access_exit_time(row_id: str) -> None:
     """Updates the exit_time for a given session log row."""
     if not SUPABASE_URL or not SUPABASE_KEY or not row_id:
         return

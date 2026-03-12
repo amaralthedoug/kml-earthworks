@@ -7,6 +7,8 @@ Interpolates stakes every STAKE_INTERVAL metres along the alignment.
 import numpy as np
 from typing import List, Dict
 
+from src.types import PointList, StationList
+
 STAKE_INTERVAL = 20.0  # metres
 EARTH_RADIUS_M = 6_371_000.0
 
@@ -20,7 +22,7 @@ def _haversine_dist(lat1, lon1, lat2, lon2) -> float:
     return EARTH_RADIUS_M * 2 * np.arcsin(np.sqrt(a))
 
 
-def build_stationing(points: List[Dict], stake_interval: float = STAKE_INTERVAL) -> List[Dict]:
+def build_stationing(points: PointList, stake_interval: float = STAKE_INTERVAL) -> StationList:
     """
     Given raw points with lat/lon/z_terrain_m, return a denser list
     of station points interpolated every `stake_interval` metres.
