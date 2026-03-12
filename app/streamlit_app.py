@@ -10,9 +10,6 @@ import inspect
 import hashlib
 import time
 
-# Allow imports from repo root
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -147,7 +144,7 @@ def _make_input_signature(data_source: str, sample_choice, files_data):
     for f in files_data:
         payload = f["content"]
         payload_bytes = payload.encode("utf-8") if isinstance(payload, str) else payload
-        digest = hashlib.md5(payload_bytes).hexdigest()[:12]
+        digest = hashlib.sha256(payload_bytes).hexdigest()[:12]
         files_sig.append((f["name"], len(payload_bytes), digest))
     return ("upload", tuple(sorted(files_sig)))
 
@@ -341,7 +338,7 @@ design_outdated = False
 if run and not run_disabled:
     if data_source == "Use a sample KML" and sample_choice:
         try:
-            with open(os.path.join(os.path.dirname(__file__), "..", "sample", sample_choice), "r") as f:
+            with open(os.path.join(os.path.dirname(__file__), "..", "sample", sample_choice), "rb") as f:
                 files_data = [{"name": sample_choice, "content": f.read()}]
         except Exception as e:
             st.error(f"Error loading sample: {e}")
@@ -365,7 +362,7 @@ if run and not run_disabled:
                 progress_bar.progress(done / total)
 
             all_points_flat = [p for a in alignments for p in a["points"]]
-            enrich_elevation(all_points_flat, progress_callback=update_progress)
+            enrich_elevation(all_points_flat, progress_callback=update_progress, cooldown_state=st.session_state)
 
             # Re-distribute enriched points back to alignments
             idx = 0
@@ -640,7 +637,7 @@ if st.session_state.results_df is not None:
 
         detail_cols = [
             "access_id", "station_m", "z_terrain_m", "z_grade_m",
-            "slope_pct", "cut_height_m", "fill_height_m",
+            "terrain_slope_pct", "cut_height_m", "fill_height_m",
             "cut_vol_m3", "fill_vol_m3", "cut_vol_cum_m3", "fill_vol_cum_m3",
         ]
         show_cols = [c for c in detail_cols if c in filtered.columns]
@@ -649,11 +646,11 @@ if st.session_state.results_df is not None:
             use_container_width=True,
             hide_index=True,
             column_config={
-                "station_m":        st.column_config.NumberColumn("Station (m)",   format="%.0f"),
-                "z_terrain_m":      st.column_config.NumberColumn("Terrain (m)",   format="%.2f"),
-                "z_grade_m":        st.column_config.NumberColumn("Grade (m)",     format="%.2f"),
-                "slope_pct":        st.column_config.NumberColumn("Slope (%)",     format="%.1f"),
-                "cut_height_m":     st.column_config.NumberColumn("Cut H (m)",     format="%.2f"),
+                "station_m":             st.column_config.NumberColumn("Station (m)",       format="%.0f"),
+                "z_terrain_m":           st.column_config.NumberColumn("Terrain (m)",       format="%.2f"),
+                "z_grade_m":             st.column_config.NumberColumn("Grade (m)",         format="%.2f"),
+                "terrain_slope_pct":     st.column_config.NumberColumn("Terrain Slope (%)", format="%.1f"),
+                "cut_height_m":          st.column_config.NumberColumn("Cut H (m)",         format="%.2f"),
                 "fill_height_m":    st.column_config.NumberColumn("Fill H (m)",    format="%.2f"),
                 "cut_vol_m3":       st.column_config.NumberColumn("Cut Vol (m³)",  format="%.1f"),
                 "fill_vol_m3":      st.column_config.NumberColumn("Fill Vol (m³)", format="%.1f"),

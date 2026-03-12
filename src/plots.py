@@ -157,7 +157,7 @@ def fig_profile(df: pd.DataFrame, access_id: Optional[str] = None) -> go.Figure:
             name="Grade line",
             line=dict(color=_GRADE_COLOR, width=3),
             hovertemplate="Station %{x:.0f} m<br>Grade: %{y:.2f} m<br>Slope: %{customdata:.1f}%<extra></extra>",
-            customdata=sub.get("grade_slope_pct", sub["slope_pct"]),
+            customdata=sub.get("grade_slope_pct", sub["terrain_slope_pct"]),
         )
     )
 

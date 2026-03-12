@@ -5,7 +5,6 @@ Each LineString becomes one Access alignment.
 """
 
 import xml.etree.ElementTree as ET
-import re
 from typing import List, Dict
 
 

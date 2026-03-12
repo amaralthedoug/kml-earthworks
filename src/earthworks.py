@@ -36,6 +36,11 @@ def build_dataframe(
 
     df = pd.DataFrame(rows)
 
+    # Recalculate cumulative volumes per alignment to ensure correctness
+    # when multiple alignments are concatenated
+    df["cut_vol_cum_m3"] = df.groupby(["file_name", "access_id"])["cut_vol_m3"].cumsum()
+    df["fill_vol_cum_m3"] = df.groupby(["file_name", "access_id"])["fill_vol_m3"].cumsum()
+
     # Mass balance: positive = waste (surplus cut), negative = borrow needed
     df["mass_balance_m3"] = (
         df["cut_vol_cum_m3"] * shrink_swell - df["fill_vol_cum_m3"]

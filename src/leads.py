@@ -79,7 +79,7 @@ def log_lead(
         sheet = client.open_by_key(sheet_id).sheet1
         sheet.append_row(
             [
-                datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+                datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
                 name,
                 company,         # column 3 — kept blank if not collected
                 country,

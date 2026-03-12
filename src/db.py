@@ -38,12 +38,6 @@ SUPABASE_KEY = _get_config(
 )
 SUPABASE_LOG_TABLE = _get_config("SUPABASE_LOG_TABLE") or "log_user"
 
-# Project defaults (publishable key) used as fallback in Cloud deployments.
-if not SUPABASE_URL:
-    SUPABASE_URL = "https://xvnloxyipwkvvamumtbc.supabase.co"
-if not SUPABASE_KEY:
-    SUPABASE_KEY = "sb_publishable_BTUDHYKslYQk10rCKoiduQ_gWipZz_u"
-
 def init_supabase() -> Client | None:
     """Initialize and return the Supabase client if credentials are provided."""
     if create_client and SUPABASE_URL and SUPABASE_KEY:
@@ -107,11 +101,16 @@ def _rest_update_exit_time(row_id: str, now_iso: str) -> None:
         print(f"REST update exception: {e}")
 
 def get_public_ip() -> str:
-    """Attempt to get the user's public IP address via an external API."""
+    """Attempt to get the client's public IP address from request headers."""
     try:
-        response = requests.get('https://api.ipify.org?format=json', timeout=3)
-        if response.status_code == 200:
-            return response.json().get('ip', 'unknown')
+        import streamlit as st
+        # Try to get the real client IP from X-Forwarded-For header
+        # This works in Streamlit Cloud and other proxy deployments
+        if hasattr(st, 'context') and hasattr(st.context, 'headers'):
+            forwarded_for = st.context.headers.get("X-Forwarded-For")
+            if forwarded_for:
+                # X-Forwarded-For can contain multiple IPs, take the first (client)
+                return forwarded_for.split(',')[0].strip()
     except Exception:
         pass
     return "unknown"
@@ -120,25 +119,25 @@ def log_access(session_id: str) -> str | None:
     """Logs the start of a user session and returns the inserted DB row ID (if successful)."""
     if not SUPABASE_URL or not SUPABASE_KEY:
         return None
-    
+
     ip_address = get_public_ip()
-    from datetime import datetime
-    now_iso = datetime.utcnow().isoformat()
+    from datetime import datetime, timezone
+    now_iso = datetime.now(timezone.utc).isoformat()
     payload = {
         "session_id": session_id,
         "ip_address": ip_address,
         "exit_time": now_iso,
     }
-    
+
     return _rest_insert_log(payload)
 
 def update_access_exit_time(row_id: str):
     """Updates the exit_time for a given session log row."""
     if not SUPABASE_URL or not SUPABASE_KEY or not row_id:
         return
-        
-    from datetime import datetime
-    now_iso = datetime.utcnow().isoformat()
+
+    from datetime import datetime, timezone
+    now_iso = datetime.now(timezone.utc).isoformat()
 
     _rest_update_exit_time(str(row_id), now_iso)
 

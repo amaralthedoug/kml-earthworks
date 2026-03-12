@@ -1,7 +1,38 @@
-
 # Ignorar pasta de melhorias
 melhorias/
 
 # Secrets
 .env
+.streamlit/secrets.toml
+
+# Python virtual environments
 .venv/
+venv/
+env/
+ENV/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ad-hoc test scripts (optional - can be moved to tests/ instead)
+test_*.py
+
+# OS files
+.DS_Store
+Thumbs.db
