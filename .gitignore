@@ -1,6 +1,9 @@
 # Ignorar pasta de melhorias
 melhorias/
 
+# Product roadmap (mantido localmente)
+ROADMAP.md
+
 # Secrets
 .env
 .streamlit/secrets.toml
