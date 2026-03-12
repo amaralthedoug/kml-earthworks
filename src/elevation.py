@@ -7,7 +7,11 @@ Free, no API key required.
 import re
 import time
 import requests
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+
+from src.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 _API_URL = "https://api.open-meteo.com/v1/elevation"
@@ -141,7 +145,7 @@ def enrich_elevation(
     points: List[Dict],
     progress_callback=None,
     cooldown_state: Optional[Dict] = None
-) -> List[Dict]:
+) -> Tuple[List[Dict], Dict]:
     """
     Add 'z_terrain_m' to each point dict.
 
@@ -152,23 +156,53 @@ def enrich_elevation(
                        Use st.session_state in Streamlit to avoid cross-session interference.
 
     Returns:
-        same list with 'z_terrain_m' added in place
+        Tuple of (enriched points list, validation dict with keys:
+            - 'missing_count': number of points with missing/zero elevation
+            - 'total_count': total number of points
+            - 'success_rate': percentage of successful elevations
+        )
     """
     total = len(points)
     all_elevations = []
+    failed_batches = []
 
     with requests.Session() as session:
         for i in range(0, total, _BATCH_SIZE):
             batch = points[i : i + _BATCH_SIZE]
             lats = [p["lat"] for p in batch]
             lons = [p["lon"] for p in batch]
-            elevations = _fetch_batch(lats, lons, session=session, cooldown_state=cooldown_state)
-            all_elevations.extend(elevations)
+
+            try:
+                elevations = _fetch_batch(lats, lons, session=session, cooldown_state=cooldown_state)
+                all_elevations.extend(elevations)
+            except RuntimeError as e:
+                logger.error(f"Failed to fetch elevation for batch at index {i}: {e}")
+                # Use 0.0 as fallback for failed batch
+                all_elevations.extend([0.0] * len(batch))
+                failed_batches.append((i, len(batch)))
 
             if progress_callback:
                 progress_callback(min(i + _BATCH_SIZE, total), total)
 
+    # Count missing/zero elevations
+    missing_count = 0
     for point, z in zip(points, all_elevations):
-        point["z_terrain_m"] = float(z)
+        if z is None or (isinstance(z, float) and z == 0.0):
+            missing_count += 1
+        point["z_terrain_m"] = float(z) if z is not None else 0.0
 
-    return points
+    # Build validation report
+    validation = {
+        'missing_count': missing_count,
+        'total_count': total,
+        'success_rate': ((total - missing_count) / total * 100) if total > 0 else 0.0,
+        'failed_batches': failed_batches,
+    }
+
+    if missing_count > 0:
+        logger.warning(
+            f"Elevation data missing for {missing_count}/{total} points "
+            f"({100 - validation['success_rate']:.1f}% failure rate)"
+        )
+
+    return points, validation

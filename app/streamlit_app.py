@@ -362,16 +362,43 @@ if run and not run_disabled:
                 progress_bar.progress(done / total)
 
             all_points_flat = [p for a in alignments for p in a["points"]]
-            enrich_elevation(all_points_flat, progress_callback=update_progress, cooldown_state=st.session_state)
+            enriched_points, validation = enrich_elevation(
+                all_points_flat,
+                progress_callback=update_progress,
+                cooldown_state=st.session_state
+            )
 
             # Re-distribute enriched points back to alignments
             idx = 0
             for a in alignments:
                 n = len(a["points"])
-                a["points"] = all_points_flat[idx : idx + n]
+                a["points"] = enriched_points[idx : idx + n]
                 idx += n
             progress_bar.empty()
-            st.write(f"   → {len(all_points_flat):,} points enriched")
+
+            # Show validation warnings if there are issues
+            if validation['missing_count'] > 0:
+                missing_pct = (validation['missing_count'] / validation['total_count'] * 100)
+                if missing_pct > 50:
+                    st.error(
+                        f"⚠️ Elevation data unavailable for {validation['missing_count']:,} out of "
+                        f"{validation['total_count']:,} points ({missing_pct:.1f}%). "
+                        f"Using 0.0m elevation as fallback. **Results may be highly inaccurate.** "
+                        f"Consider checking your coordinates or trying again later."
+                    )
+                elif missing_pct > 10:
+                    st.warning(
+                        f"⚠️ Elevation data unavailable for {validation['missing_count']:,} out of "
+                        f"{validation['total_count']:,} points ({missing_pct:.1f}%). "
+                        f"Using 0.0m elevation as fallback. Results may be less accurate in some areas."
+                    )
+                else:
+                    st.info(
+                        f"ℹ️ Elevation data unavailable for {validation['missing_count']:,} points "
+                        f"({missing_pct:.1f}%). Using 0.0m elevation as fallback."
+                    )
+
+            st.write(f"   → {len(all_points_flat):,} points enriched (success rate: {validation['success_rate']:.1f}%)")
 
             # 3. Build and cache station base (no design params yet)
             st.write("📏 Building station base…")

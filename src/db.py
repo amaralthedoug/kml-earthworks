@@ -5,9 +5,14 @@ from typing import Any
 
 import requests
 
+from src.logger import get_logger
+
+logger = get_logger(__name__)
+
 try:
     from supabase import create_client, Client
-except Exception:
+except Exception as e:
+    logger.warning(f"Supabase library not available: {e}")
     create_client = None
     Client = Any  # type: ignore
 
@@ -24,8 +29,8 @@ def _get_config(*keys: str) -> str | None:
         for key in keys:
             if key in st.secrets and st.secrets[key]:
                 return str(st.secrets[key])
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Could not access Streamlit secrets: {e}")
 
     return None
 
@@ -44,7 +49,7 @@ def init_supabase() -> Client | None:
         try:
             return create_client(SUPABASE_URL, SUPABASE_KEY)
         except Exception as e:
-            print(f"Error initializing Supabase client: {e}")
+            logger.error(f"Error initializing Supabase client: {e}")
             return None
     return None
 
@@ -74,9 +79,9 @@ def _rest_insert_log(payload: dict) -> str | None:
                 if row_id is not None:
                     return str(row_id)
         else:
-            print(f"REST insert failed ({resp.status_code}): {resp.text}")
+            logger.warning(f"REST insert failed ({resp.status_code}): {resp.text}")
     except Exception as e:
-        print(f"REST insert exception: {e}")
+        logger.error(f"REST insert exception: {e}", exc_info=True)
     return None
 
 
@@ -96,9 +101,9 @@ def _rest_update_exit_time(row_id: str, now_iso: str) -> None:
             timeout=5,
         )
         if resp.status_code not in (200, 204):
-            print(f"REST update failed ({resp.status_code}): {resp.text}")
+            logger.warning(f"REST update failed ({resp.status_code}): {resp.text}")
     except Exception as e:
-        print(f"REST update exception: {e}")
+        logger.error(f"REST update exception: {e}", exc_info=True)
 
 def get_public_ip() -> str:
     """Attempt to get the client's public IP address from request headers."""
@@ -171,5 +176,5 @@ def log_feedback(nome: str, email: str, feedback: str) -> bool:
         )
         return resp.status_code in (200, 201)
     except Exception as e:
-        print(f"Error saving feedback to Supabase: {e}")
+        logger.error(f"Error saving feedback to Supabase: {e}", exc_info=True)
         return False

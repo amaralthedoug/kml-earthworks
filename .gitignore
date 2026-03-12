@@ -30,8 +30,8 @@ build/
 *.swo
 *~
 
-# Ad-hoc test scripts (optional - can be moved to tests/ instead)
-test_*.py
+# Ad-hoc test scripts in root directory only (not in tests/ folder)
+/test_*.py
 
 # OS files
 .DS_Store
